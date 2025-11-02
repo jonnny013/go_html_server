@@ -2,10 +2,14 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"log"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 func getLinesChannel(f io.ReadCloser) <-chan string {
@@ -57,6 +61,16 @@ func main() {
 
 	fmt.Printf("Listening on port: %d\n", port)
 
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+
+	defer stop()
+
+	go func() {
+		<-ctx.Done()
+		fmt.Println("\nShutdown signal received, shutting down")
+		listener.Close()
+	}()
+
 	info, err := io.ReadAll(&bytes.Reader{})
 
 	if err != nil {
@@ -68,11 +82,19 @@ func main() {
 	}
 
 	for {
-
 		conn, err := listener.Accept()
 
 		if err != nil {
-			log.Fatal("error", "error", err)
+
+			select {
+			case <-ctx.Done():
+				fmt.Println("Server shutting down gracefully")
+				return
+			default:
+				log.Println("accept error:", err)
+				continue
+			}
+
 		}
 
 		for line := range getLinesChannel(conn) {
@@ -80,12 +102,6 @@ func main() {
 			fmt.Printf("read: %s\n", line)
 		}
 
-		err = listener.Close()
-
-		if err != nil {
-			log.Fatal("error", "error", err)
-		}
-		fmt.Printf("Connection closed\n")
 	}
 
 }
