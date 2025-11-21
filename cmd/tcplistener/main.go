@@ -57,11 +57,12 @@ func main() {
 			log.Fatal(err)
 		}
 
-		fmt.Println("Connection accepted")
+		fmt.Println("Connection accepted", c.RemoteAddr())
 
 		for l := range getLinesChannel(c) {
 			fmt.Printf("read: %s\n", l)
 		}
+		fmt.Println("Connection to ", c.RemoteAddr(), "closed")
 	}
 
 }
